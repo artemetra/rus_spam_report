@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Union, Tuple
 import random
 import time
@@ -14,7 +15,6 @@ from pyrogram.raw.types import (
     InputReportReasonOther
 )
 
-
 app = Client("spamreport")
 
 reasons_msg = [
@@ -27,19 +27,19 @@ reason_types = [
     InputReportReasonViolence,
 ]
 
-def to_peer(client: Client, link: str) -> Union[InputPeer, None]:
+async def to_peer(client: Client, link: str) -> Union[InputPeer, None]:
     try:
-        return client.resolve_peer(link)
+        return await client.resolve_peer(link)
     except (KeyError, UsernameInvalid):
         return None
 
-def get_working_peer_list(app: Client) -> List[Tuple[str, InputPeer]]:
+async def get_working_peer_list(app: Client) -> List[Tuple[str, InputPeer]]:
     with open("links.txt", encoding="UTF-8") as _links:
         links = [link.strip() for link in _links]
     
     working = []
     for l in links:
-        peer = to_peer(app, l)
+        peer = await to_peer(app, l)
         if peer:
             working.append((l, peer))
         else:
@@ -47,7 +47,7 @@ def get_working_peer_list(app: Client) -> List[Tuple[str, InputPeer]]:
     
     return working
 
-def send_report(app: Client, peer: InputPeerChannel) -> bool:
+async def send_report(app: Client, peer: InputPeerChannel) -> bool:
     report_reason_type: ReportReason = random.choice(reason_types)()
     report_reason_message = random.choice(reasons_msg)
     rp = ReportPeer(
@@ -56,17 +56,18 @@ def send_report(app: Client, peer: InputPeerChannel) -> bool:
         message=report_reason_message
     )
 
-    result = app.send(rp)
+    result = await app.send(rp)
     return result
 
-def main(app: Client) -> None:
-    links = get_working_peer_list(app)
-    while True:
-        for link in links:
-            report = send_report(app, link[1])
-            print(f"Successfully sent report to {link[0]}!") if report else print(f"!!Failed to send report to {link[0]}.")
-            time.sleep(random.randint(1, 9999)/3333)
+async def main():
+    async with app:
+        links = await get_working_peer_list(app)
+        while True:
+            for link in links:
+                report = await send_report(app, link[1])
+                print(f"Successfully sent report to {link[0]}!") if report else print(f"!!Failed to send report to {link[0]}.")
+                sleep_interval = random.randint(1, 9999)/3333
+                await asyncio.sleep(sleep_interval)
 
-if __name__ == '__main__':
-    with app:
-        main(app)
+
+asyncio.get_event_loop().run_until_complete(main())
